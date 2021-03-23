@@ -104,17 +104,23 @@ class LoginHandler(BaseHandler):
         )
 
     async def get(self):
+        self.log.info("INFO: Calling /hub/login")
         self.statsd.incr('login.request')
         user = self.current_user
+        self.log.info("INFO: user is %", user)
         if user:
             # set new login cookie
             # because single-user cookie may have been cleared or incorrect
             self.set_login_cookie(user)
             self.redirect(self.get_next_url(user), permanent=False)
         else:
+            self.log.info('INFO: no user')
+            self.log.info('INFO: auto_login: %s', self.authenticator.auto_login)
             if self.authenticator.auto_login:
                 auto_login_url = self.authenticator.login_url(self.hub.base_url)
+                self.log.info('INFO: auto_login_url %s', auto_login_url)
                 if auto_login_url == self.settings['login_url']:
+                    self.log.info('INFO: auto_login_url == self.settings[login_url]: true')
                     # auto_login without a custom login handler
                     # means that auth info is already in the request
                     # (e.g. REMOTE_USER header)
@@ -129,6 +135,7 @@ class LoginHandler(BaseHandler):
                         auto_login_url = url_concat(
                             auto_login_url, {'next': self.get_next_url()}
                         )
+                        self.log.info('INFO: auto_login_url: %s', auto_login_url)
                     self.redirect(auto_login_url)
                 return
             username = self.get_argument('username', default='')

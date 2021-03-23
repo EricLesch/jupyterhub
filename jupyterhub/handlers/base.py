@@ -307,27 +307,37 @@ class BaseHandler(RequestHandler):
             user (User): the user having been refreshed,
                 or None if the user must login again to refresh auth info.
         """
+        self.log.info("INFO: Calling refresh_auth")
         refresh_age = self.authenticator.auth_refresh_age
+        if refresh_age:
+            self.log.info("INFO: Auth refresh age is %s", refresh_age)
         if not refresh_age:
+            self.log.info("INFO: No auth refresh age")
             return user
         now = time.monotonic()
+        self.log.info("INFO: Now is %s.", now)
+        self.log.info("INFO: user._auth_refreshed is %s", user._auth_refreshed)
+        self.log.info("INFO: Force is %s: ", force )
         if (
             not force
             and user._auth_refreshed
             and (now - user._auth_refreshed < refresh_age)
         ):
+            self.log.info("INFO: Auth up to date")
             # auth up-to-date
             return user
 
         # refresh a user at most once per request
         if not hasattr(self, '_refreshed_users'):
+            self.log.info("INFO: Adding refreshed users set()")
             self._refreshed_users = set()
         if user.name in self._refreshed_users:
             # already refreshed during this request
+            self.log.info('INFO: already refreshed during this request')
             return user
         self._refreshed_users.add(user.name)
 
-        self.log.debug("Refreshing auth for %s", user.name)
+        self.log.info("INFO: Refreshing auth for %s", user.name)
         auth_info = await self.authenticator.refresh_user(user, self)
 
         if not auth_info:
@@ -339,6 +349,7 @@ class BaseHandler(RequestHandler):
         user._auth_refreshed = now
 
         if auth_info == True:
+            self.log.info("INFO: Refresh user confirmed that it's up-to-date")
             # refresh_user confirmed that it's up-to-date,
             # nothing to refresh
             return user
@@ -349,6 +360,7 @@ class BaseHandler(RequestHandler):
         if 'auth_state' not in auth_info:
             # refresh didn't specify auth_state,
             # so preserve previous value to avoid clearing it
+            self.log.info("INFO: refresh didn't specify auth_state")
             auth_info['auth_state'] = await user.get_auth_state()
         return await self.auth_to_user(auth_info, user)
 
@@ -451,8 +463,12 @@ class BaseHandler(RequestHandler):
 
     def user_from_username(self, username):
         """Get User for username, creating if it doesn't exist"""
+        self.log.info("INFO: calling user_from_username")
+        self.log.info("INFO: Username: %s", username)
         user = self.find_user(username)
+
         if user is None:
+            self.log.info('INFO: user is none, creating new user: %s', username)
             # not found, create and register user
             u = orm.User(name=username)
             self.db.add(u)
@@ -523,6 +539,7 @@ class BaseHandler(RequestHandler):
         set_cookie(key, value, **kwargs)
 
     def _set_user_cookie(self, user, server):
+        self.log.info('INFO: setting cookie for user.name: %s, server.cookie_name: %s, user.cookie_id: %s, path: %s', user.name, server.cookie_name, user.cookie_id, server.base_url)
         self.log.debug("Setting cookie for %s: %s", user.name, server.cookie_name)
         self._set_cookie(
             server.cookie_name, user.cookie_id, encrypted=True, path=server.base_url
@@ -543,6 +560,7 @@ class BaseHandler(RequestHandler):
         Session id cookie is *not* encrypted,
         so other services on this domain can read it.
         """
+        self.log.info('INFO: Calling set_session_cookie()')
         session_id = uuid.uuid4().hex
         self._set_cookie(SESSION_COOKIE_NAME, session_id, encrypted=False)
         return session_id
@@ -562,6 +580,7 @@ class BaseHandler(RequestHandler):
         self._set_user_cookie(user, self.hub)
 
     def set_login_cookie(self, user):
+        self.log.info("INFO: Calling set_login_cookie")
         """Set login cookies for the Hub and single-user server."""
         if self.subdomain_host and not self.request.host.startswith(self.domain):
             self.log.warning(
@@ -572,13 +591,16 @@ class BaseHandler(RequestHandler):
 
         # set single cookie for services
         if self.db.query(orm.Service).filter(orm.Service.server != None).first():
+            self.log.info('INFO: setting service cookie')
             self.set_service_cookie(user)
 
         if not self.get_session_cookie():
+            self.log.info('INFO: setting session cookie')
             self.set_session_cookie()
 
         # create and set a new cookie token for the hub
         if not self.get_current_user_cookie():
+            self.log.info('INFO: setting hub cookie')
             self.set_hub_cookie(user)
 
     def authenticate(self, data):
@@ -592,6 +614,7 @@ class BaseHandler(RequestHandler):
         - if redirect_to_server (default): send to user's own server
         - else: /hub/home
         """
+        self.log.info('INFO: calling get_next_url')
         next_url = self.get_argument('next', default='')
         # protect against some browsers' buggy handling of backslash as slash
         next_url = next_url.replace('\\', '%5C')
@@ -654,6 +677,7 @@ class BaseHandler(RequestHandler):
                     next_url = url_path_join(self.hub.base_url, 'spawn')
             else:
                 next_url = url_path_join(self.hub.base_url, 'home')
+        self.info.log('INFO: next_url is next_url')
         return next_url
 
     async def auth_to_user(self, authenticated, user=None):
@@ -665,29 +689,39 @@ class BaseHandler(RequestHandler):
         Return:
             user(User): the constructed User object
         """
+        self.log.info("INFO: calling auth_to_user")
         if isinstance(authenticated, str):
+            self.log.info("INFO: authenticated is %s", authenticated)
             authenticated = {'name': authenticated}
         username = authenticated['name']
+        self.log.info("INFO: username is %s", username)
         auth_state = authenticated.get('auth_state')
+        self.log.info("INFO: auth_state is %s", auth_state)
         admin = authenticated.get('admin')
+        self.log.info('INFO: admin is %s', admin)
         refreshing = user is not None
+        self.log.info('INFO: refreshing is %s', refreshing)
 
         if user and username != user.name:
+            self.log.info("INFO: Username doesn't match! %s != %s" % (username, user.name))
             raise ValueError("Username doesn't match! %s != %s" % (username, user.name))
 
         if user is None:
             new_user = username not in self.users
+            self.log.info('INFO: new_user is %s', new_user)
             user = self.user_from_username(username)
             if new_user:
                 await maybe_future(self.authenticator.add_user(user))
         # Only set `admin` if the authenticator returned an explicit value.
         if admin is not None and admin != user.admin:
+            self.log.info('INFO: admin is %s', admin)
             user.admin = admin
             self.db.commit()
         # always set auth_state and commit,
         # because there could be key-rotation or clearing of previous values
         # going on.
         if not self.authenticator.enable_auth_state:
+            self.log.info('INFO: auth state is not enabled')
             # auth_state is not enabled. Force None.
             auth_state = None
         await user.save_auth_state(auth_state)
@@ -695,6 +729,7 @@ class BaseHandler(RequestHandler):
 
     async def login_user(self, data=None):
         """Login a user"""
+        self.log.info("INFO: Calling login_user")
         auth_timer = self.statsd.timer('login.authenticate').start()
         authenticated = await self.authenticate(data)
         auth_timer.stop(send=False)

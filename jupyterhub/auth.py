@@ -380,8 +380,10 @@ class Authenticator(LoggingConfigurable):
         .. versionchanged:: 0.8
             return dict instead of username
         """
+        self.log.info('INFO: calling get_authenticated_user()')
         authenticated = await maybe_future(self.authenticate(handler, data))
         if authenticated is None:
+            self.log.info("authenticated is None")
             return
         if isinstance(authenticated, dict):
             if 'name' not in authenticated:
@@ -396,6 +398,8 @@ class Authenticator(LoggingConfigurable):
         authenticated['name'] = username = self.normalize_username(
             authenticated['name']
         )
+
+        self.log.info('INFO: normalized username: %s', username)
         if not self.validate_username(username):
             self.log.warning("Disallowing invalid username %r.", username)
             return
@@ -531,9 +535,12 @@ class Authenticator(LoggingConfigurable):
         Args:
             user (User): The User wrapper object
         """
+        self.log.info('INFO: Calling add_user')
         if not self.validate_username(user.name):
+            self.log.info("INFO: Invalid username: %s", user.name)
             raise ValueError("Invalid username: %s" % user.name)
         if self.whitelist:
+            self.log.info("INFO: Adding user %s to whitelist", user.name)
             self.whitelist.add(user.name)
 
     def delete_user(self, user):

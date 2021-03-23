@@ -179,19 +179,25 @@ class User:
 
     async def save_auth_state(self, auth_state):
         """Encrypt and store auth_state"""
+        self.log.info("INFO: Called save_auth_state")
         if auth_state is None:
+            self.log.info("INFO: Auth state is none")
             self.encrypted_auth_state = None
         else:
+            self.log.info("INFO: encrypting auth state")
             self.encrypted_auth_state = await encrypt(auth_state)
         self.db.commit()
 
     async def get_auth_state(self):
         """Retrieve and decrypt auth_state for the user"""
+        self.log.info("INFO: Called get_auth_state")
         encrypted = self.encrypted_auth_state
         if encrypted is None:
+            self.log.info('INFO: encrypted is None')
             return None
         try:
             auth_state = await decrypt(encrypted)
+            self.log.info('INFO: decrypted auth state %s', auth_state)
         except (ValueError, InvalidToken, EncryptionUnavailable) as e:
             self.log.warning(
                 "Failed to retrieve encrypted auth_state for %s because %s",
@@ -203,6 +209,7 @@ class User:
         if auth_state:
             # Crypt has multiple keys, store again with new key for rotation.
             if len(CryptKeeper.instance().keys) > 1:
+                self.log.info('INFO: Crypt has multiple keys')
                 await self.save_auth_state(auth_state)
         return auth_state
 

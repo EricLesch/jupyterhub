@@ -153,19 +153,25 @@ class OAuthHandler:
 
         Adds user, session_id, client to oauth credentials
         """
+        self.log.info("INFO: Calling add_credentials")
         if credentials is None:
+            self.log.info("INFO: credentials is None")
             credentials = {}
         else:
+            self.log.info("INFO: Copy credentials")
             credentials = credentials.copy()
 
         session_id = self.get_session_cookie()
+        self.log.info('INFO: Session_id is %s', session_id)
         if session_id is None:
             session_id = self.set_session_cookie()
+            self.log.info('INFO: New session id is %s', session_id)
 
         user = self.current_user
 
         # Extra credentials we need in the validator
         credentials.update({'user': user, 'handler': self, 'session_id': session_id})
+        self.log.info('INFO: updating credentials to %s', credentials)
         return credentials
 
     def send_oauth_response(self, headers, body, status):
@@ -177,6 +183,7 @@ class OAuthHandler:
         This method applies these values to the Handler
         and sends the response.
         """
+        self.log.info('INFO: Calling send_oauth_response')
         self.set_status(status)
         for key, value in headers.items():
             self.set_header(key, value)
@@ -192,6 +199,9 @@ class OAuthAuthorizeHandler(OAuthHandler, BaseHandler):
             headers, body, status = self.oauth_provider.create_authorization_response(
                 uri, 'POST', '', headers, scopes, credentials
             )
+            self.log.info('INFO: headers are %s', headers)
+            self.log.info('INFO: body is %s', body)
+            self.log.info('INFO: status is %s', status)
 
         except oauth2.FatalClientError as e:
             # TODO: human error page
@@ -207,10 +217,13 @@ class OAuthAuthorizeHandler(OAuthHandler, BaseHandler):
 
         .. versionadded: 1.1
         """
+        self.log.info("INFO: Calling needs_oauth_confirm()")
         # get the oauth client ids for the user's own server(s)
         own_oauth_client_ids = set(
             spawner.oauth_client_id for spawner in user.spawners.values()
         )
+        self.log.info('INFO: own_oauth_client_ids %s', own_oauth_client_ids)
+        self.log.info('INFO: oauth_client.identifier in own_oauth_client_ids: %s', oauth_client.identifier in own_oauth_client_ids)
         if (
             # it's the user's own server
             oauth_client.identifier in own_oauth_client_ids
@@ -233,14 +246,25 @@ class OAuthAuthorizeHandler(OAuthHandler, BaseHandler):
         will skip confirmation.
         """
 
+        self.log.info("INFO: Calling oauth2/authorization endpoint")
         uri, http_method, body, headers = self.extract_oauth_params()
+        self.log.info('INFO: uri is %s', uri)
+        self.log.info('INFO: http_method is %s', http_method)
+        self.log.info('INFO: body is %s', body)
+        self.log.info('INFO: headers is %s', headers)
         try:
             scopes, credentials = self.oauth_provider.validate_authorization_request(
                 uri, http_method, body, headers
             )
+            self.log.info('INFO: credentials is %s', credentials)
+            self.log.info('INFO: scopes is %s', scopes)
             credentials = self.add_credentials(credentials)
             client = self.oauth_provider.fetch_by_client_id(credentials['client_id'])
+            self.log.info('INFO: client %s', client)
             if not self.needs_oauth_confirm(self.current_user, client):
+                self.log.info('INFO: Skipping oauth confirmation for %s accessing %s',
+                              self.current_user,
+                              client.description)
                 self.log.debug(
                     "Skipping oauth confirmation for %s accessing %s",
                     self.current_user,
@@ -252,6 +276,7 @@ class OAuthAuthorizeHandler(OAuthHandler, BaseHandler):
 
             # Render oauth 'Authorize application...' page
             auth_state = await self.current_user.get_auth_state()
+            self.log.info('INFO: auth_state is %s', auth_state)
             self.write(
                 self.render_template(
                     "oauth.html",
