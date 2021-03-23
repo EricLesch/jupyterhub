@@ -588,7 +588,6 @@ class HealthCheckHandler(BaseHandler):
     """Answer to health check"""
 
     def get(self, *args):
-        self.write('Hi Mitchell')
         self.finish()
 
 
