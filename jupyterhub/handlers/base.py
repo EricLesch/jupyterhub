@@ -677,7 +677,7 @@ class BaseHandler(RequestHandler):
                     next_url = url_path_join(self.hub.base_url, 'spawn')
             else:
                 next_url = url_path_join(self.hub.base_url, 'home')
-        self.info.log('INFO: next_url is next_url')
+        self.log.info('INFO: next_url is next_url')
         return next_url
 
     async def auth_to_user(self, authenticated, user=None):
