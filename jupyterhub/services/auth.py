@@ -695,18 +695,24 @@ class HubOAuth(HubAuth):
         -------
         state (str): The OAuth state that has been stored in the cookie (url safe, base64-encoded)
         """
+        app_log.info('INFO: calling set_state_cookie()')
+        app_log.info('INFO: next url is %s', next_url)
         extra_state = {}
-        if handler.get_cookie(self.state_cookie_name):
+        existing_cookie = handler.get_cookie(self.state_cookie_name)
+        if existing_cookie:
             # oauth state cookie is already set
             # use a randomized cookie suffix to avoid collisions
             # in case of concurrent logins
             app_log.warning("Detected unused OAuth state cookies")
+            app_log.info('INFO: Current cookie is %s', existing_cookie)
             cookie_suffix = ''.join(
                 random.choice(string.ascii_letters) for i in range(8)
             )
             cookie_name = '{}-{}'.format(self.state_cookie_name, cookie_suffix)
+            app_log.info('INFO: New cookie name is %s', cookie_name)
             extra_state['cookie_name'] = cookie_name
         else:
+            app_log.info('INFO: No existing cookie')
             cookie_name = self.state_cookie_name
         b64_state = self.generate_state(next_url, **extra_state)
         kwargs = {
@@ -722,6 +728,7 @@ class HubOAuth(HubAuth):
             kwargs['secure'] = True
         # load user cookie overrides
         kwargs.update(self.cookie_options)
+        app_log.info('INFO: Current **kwargs is %s', **kwargs)
         handler.set_secure_cookie(cookie_name, b64_state, **kwargs)
         return b64_state
 
@@ -848,11 +855,15 @@ class HubAuthenticated(object):
 
     def get_login_url(self):
         """Return the Hub's login URL"""
+        app_log.info('INFO: Calling get_login_url()')
         login_url = self.hub_auth.login_url
+        app_log.info('INFO: 1 login_url is %s', login_url)
         if isinstance(self.hub_auth, HubOAuth):
+            app_log.info('INFO: isinstance(self.hub_auth, HubOAuth) is True')
             # add state argument to OAuth url
             state = self.hub_auth.set_state_cookie(self, next_url=self.request.uri)
             login_url = url_concat(login_url, {'state': state})
+            app_log.info('INFO: 2 login_url is %s', login_url)
         app_log.debug("Redirecting to login url: %s", login_url)
         return login_url
 
