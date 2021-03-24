@@ -124,10 +124,13 @@ def admin_or_self(method):
 class UserAPIHandler(APIHandler):
     @admin_or_self
     async def get(self, name):
+        self.log.info('INFO: Calling get in UserAPIHandler')
         user = self.find_user(name)
+        self.log.info('INFO: Found user is %s', user)
         model = self.user_model(
             user, include_servers=True, include_state=self.current_user.admin
         )
+        self.log.info('INFO: User model is %s', model)
         # auth state will only be shown if the requester is an admin
         # this means users can't see their own auth state unless they
         # are admins, Hub admins often are also marked as admins so they
@@ -135,6 +138,7 @@ class UserAPIHandler(APIHandler):
         requester = self.current_user
         if requester.admin:
             model['auth_state'] = await user.get_auth_state()
+            self.log.info('INFO: auth state is %s', model['auth_state'])
         self.write(json.dumps(model))
 
     @admin_only
