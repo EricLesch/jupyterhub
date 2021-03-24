@@ -107,7 +107,10 @@ class LoginHandler(BaseHandler):
         self.log.info("INFO: Calling /hub/login")
         self.statsd.incr('login.request')
         user = self.current_user
-        self.log.info("INFO: user is %", user)
+        if user is None:
+           self.log.info('INFO: User is None')
+        else:
+            self.log.info("INFO: User is %", user)
         if user:
             # set new login cookie
             # because single-user cookie may have been cleared or incorrect
