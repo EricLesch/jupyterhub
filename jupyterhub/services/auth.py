@@ -301,21 +301,27 @@ class HubAuth(SingletonConfigurable):
         Raises an HTTPError if the request failed for a reason other than no such user.
         """
         if use_cache:
+            app_log.info('INFO: use_cache is %s', True)
             if cache_key is None:
                 raise ValueError("cache_key is required when using cache")
             # check for a cached reply, so we don't check with the Hub if we don't have to
             try:
+                app_log.info('INFO: Cache is -> %s', self.cache)
                 return self.cache[cache_key]
             except KeyError:
                 app_log.debug("HubAuth cache miss: %s", cache_key)
 
+        app_log.info('INFO: _checkout_hub_authorization api request to %s', url)
         data = self._api_request('GET', url, allow_404=True)
         if data is None:
+            app_log.info('INFO: No Hub user identified for request')
             app_log.warning("No Hub user identified for request")
         else:
+            app_log.info('INFO: Received request from Hub user %s", data')
             app_log.debug("Received request from Hub user %s", data)
         if use_cache:
             # cache result
+            app_log.info('INFO: setting cache_key %s to %s', cache_key, data)
             self.cache[cache_key] = data
         return data
 
@@ -437,22 +443,34 @@ class HubAuth(SingletonConfigurable):
         - in header: Authorization: token <token>
         """
 
+        app_log.info('INFO: called get_token()')
         user_token = handler.get_argument('token', '')
+        if user_token is None:
+            app_log.info('INFO: user token is None')
+        else:
+            app_log.info('INFO: user token is %s', user_token)
         if not user_token:
+            app_log.info('INFO: getting user token from the authorization header')
             # get it from Authorization header
             m = self.auth_header_pat.match(
                 handler.request.headers.get(self.auth_header_name, '')
             )
             if m:
                 user_token = m.group(1)
+                app_log.info('INFO:  user token from the authorization header is %s', user_token)
         return user_token
 
     def _get_user_cookie(self, handler):
         """Get the user model from a cookie"""
+        app_log.info('INFO: Calling _get_user_cookie()')
         encrypted_cookie = handler.get_cookie(self.cookie_name)
         session_id = self.get_session_id(handler)
+        if not encrypted_cookie:
+            app_log.info('INFO: no encrypted cookie')
         if encrypted_cookie:
-            return self.user_for_cookie(encrypted_cookie, session_id=session_id)
+            user = self.user_for_cookie(encrypted_cookie, session_id=session_id)
+            app_log.info('INFO: encrypted cookie yielded the user: %s', user)
+            return user
 
     def get_session_id(self, handler):
         """Get the jupyterhub session id
@@ -479,23 +497,29 @@ class HubAuth(SingletonConfigurable):
         # avoids issues if an error is raised,
         # since this may be called again when trying to render the error page
         if hasattr(handler, '_cached_hub_user'):
+            app_log.info("INFO: has a _cached_hub_user %s", handler._cached_hub_user)
             return handler._cached_hub_user
 
         handler._cached_hub_user = user_model = None
         session_id = self.get_session_id(handler)
+        app_log.info('INFO: jupyterhub-session-id is %s', session_id)
 
         # check token first
         token = self.get_token(handler)
+        app_log.info('INFO: retrieved token is %s', token)
         if token:
             user_model = self.user_for_token(token, session_id=session_id)
+            app_log.info('INFO: User model is %s', user_model)
             if user_model:
                 handler._token_authenticated = True
 
         # no token, check cookie
         if user_model is None:
+            app_log.info("INFO: No token so check the cookie")
             user_model = self._get_user_cookie(handler)
 
         # cache result
+        app_log.info('INFO: saving the _cached_hub_user as %s', user_model)
         handler._cached_hub_user = user_model
         if not user_model:
             app_log.debug("No user identified")
