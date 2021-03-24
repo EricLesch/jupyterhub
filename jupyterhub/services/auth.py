@@ -715,6 +715,7 @@ class HubOAuth(HubAuth):
             app_log.info('INFO: No existing cookie')
             cookie_name = self.state_cookie_name
         b64_state = self.generate_state(next_url, **extra_state)
+        app_log.info('INFO: path is %s', self.base_url)
         kwargs = {
             'path': self.base_url,
             'httponly': True,
@@ -728,7 +729,6 @@ class HubOAuth(HubAuth):
             kwargs['secure'] = True
         # load user cookie overrides
         kwargs.update(self.cookie_options)
-        app_log.info('INFO: Current **kwargs is %s', **kwargs)
         handler.set_secure_cookie(cookie_name, b64_state, **kwargs)
         return b64_state
 
