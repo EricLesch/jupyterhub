@@ -25,18 +25,28 @@ class TokenAPIHandler(APIHandler):
     def get(self, token):
         orm_token = orm.APIToken.find(self.db, token)
         if orm_token is None:
+            self.log.info('INFO: orm_token token from query "orm.APIToken.find(self.db, token)" is None')
             orm_token = orm.OAuthAccessToken.find(self.db, token)
+            self.log.info('INFO: orm_token token from query "orm.OAuthAccessToken.find(self.db, token) is %s"', orm_token)
+        else:
+            self.log.info('INFO: orm_token token from query "orm.APIToken.find(self.db, token)" is %s', orm_token)
         if orm_token is None:
             raise web.HTTPError(404)
 
         # record activity whenever we see a token
         now = orm_token.last_activity = datetime.utcnow()
+        self.log.info('INFO: orm_token.last_activity is %s', now)
         if orm_token.user:
+            self.log.info('INFO: orm_token.user is %s', orm_token.user)
             orm_token.user.last_activity = now
             model = self.user_model(self.users[orm_token.user])
+            self.log.info('INFO: self.user_model(self.users[orm_token.user] for is %s', model)
         elif orm_token.service:
+            self.log.info('INFO: NO orm_token.user but there is orm_token.service')
             model = self.service_model(orm_token.service)
+            self.log.info('INFO: self.service_model(orm_token.service) is %s', model)
         else:
+            self.log.info('INFO: "%s has no user or service. Deleting...', orm_token)
             self.log.warning("%s has no user or service. Deleting..." % orm_token)
             self.db.delete(orm_token)
             self.db.commit()
