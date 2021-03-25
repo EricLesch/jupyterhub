@@ -458,6 +458,8 @@ class HubAuth(SingletonConfigurable):
             if m:
                 user_token = m.group(1)
                 app_log.info('INFO:  user token from the authorization header is %s', user_token)
+            else:
+                app_log.info('INFO: no user token retrieved from the authorization header')
         return user_token
 
     def _get_user_cookie(self, handler):
